@@ -1,1 +1,8 @@
-pip install git+https://github.com/adafruit/Adafruit_Blinka.git
+sudo apt update
+sudo apt install python3-pip python3-dev python3-setuptools git -y
+mkdir -p ~/blinka-install
+cd ~/blinka-install
+
+git clone https://github.com/adafruit/Adafruit_Blinka.git
+cd Adafruit_Blinka
+pip3 install . --break-system-packages
