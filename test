@@ -1,16 +1,1 @@
-import time
-import board
-import adafruit_dht
-
-# Създаване на обект за DHT22 вързан към GPIO4 (пин 7)
-dhtDevice = adafruit_dht.DHT22(board.D4)
-
-while True:
-    try:
-        temperature = dhtDevice.temperature
-        humidity = dhtDevice.humidity
-        print(f"Температура: {temperature:.1f}°C  Влажност: {humidity:.1f}%")
-        time.sleep(2)
-    except Exception as e:
-        print("Грешка при четене:", e)
-        time.sleep(2)
+pip install git+https://github.com/adafruit/Adafruit_Blinka.git
