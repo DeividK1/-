@@ -1,0 +1,16 @@
+pip install Adafruit_DHT
+import Adafruit_DHT
+import time
+
+# Използваме DHT22 и го свързваме към GPIO4 (пин 7 на Pi)
+sensor = Adafruit_DHT.DHT22
+pin = 4  # GPIO4
+
+print("Четене от DHT22 сензор. Натисни Ctrl+C за спиране.")
+while True:
+    humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+    if humidity is not None and temperature is not None:
+        print(f"Температура: {temperature:.1f}°C  |  Влажност: {humidity:.1f}%")
+    else:
+        print("Неуспешно четене. Проверете свързването.")
+    time.sleep(2)
