@@ -1,16 +1,134 @@
-import time
+import customtkinter as ctk
+import RPi.GPIO as GPIO
+from datetime import datetime
 import board
 import adafruit_dht
 
-# Създаване на обект за DHT22 вързан към GPIO4 (пин 7)
-dhtDevice = adafruit_dht.DHT22(board.D4)
+# GPIO setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 
-while True:
-    try:
-        temperature = dhtDevice.temperature
-        humidity = dhtDevice.humidity
-        print(f"Температура: {temperature:.1f}°C  Влажност: {humidity:.1f}%")
-        time.sleep(2)
-    except Exception as e:
-        print("Грешка при четене:", e)
-        time.sleep(2)
+PIN_LAMP = 17       # Lamp relay
+PIN_FAN = 27        # Fan relay
+PIN_PIR = 22        # PIR motion sensor
+PIN_DHT = 4         # DHT22 sensor
+
+GPIO.setup(PIN_LAMP, GPIO.OUT)
+GPIO.setup(PIN_FAN, GPIO.OUT)
+GPIO.setup(PIN_PIR, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.output(PIN_LAMP, GPIO.HIGH)
+GPIO.output(PIN_FAN, GPIO.HIGH)
+
+# Initialize DHT22 sensor
+try:
+    dht_sensor = adafruit_dht.DHT22(board.D4, use_pulseio=False)
+except Exception as e:
+    dht_sensor = None
+    print(f"DHT sensor init error: {e}")
+
+# CustomTkinter settings
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+# Main application window
+app = ctk.CTk()
+app.title("Smart Home Control Panel")
+app.geometry("500x650")
+
+lamp_on = False
+fan_on = False
+
+# Toggle functions for real devices
+def toggle_lamp():
+    global lamp_on
+    lamp_on = not lamp_on
+    GPIO.output(PIN_LAMP, GPIO.LOW if lamp_on else GPIO.HIGH)
+    btn_lamp.configure(text="Turn OFF Lamp" if lamp_on else "Turn ON Lamp")
+
+def toggle_fan():
+    global fan_on
+    fan_on = not fan_on
+    GPIO.output(PIN_FAN, GPIO.LOW if fan_on else GPIO.HIGH)
+    btn_fan.configure(text="Turn OFF Fan" if fan_on else "Turn ON Fan")
+
+# Create a scrollable container
+scrollable_frame = ctk.CTkScrollableFrame(app, width=460, height=620)
+scrollable_frame.pack(padx=20, pady=20, fill="both", expand=True)
+
+# Title
+title = ctk.CTkLabel(scrollable_frame, text="Smart Home Control", font=ctk.CTkFont(size=20, weight="bold"))
+title.pack(pady=(10,20))
+
+# Section: Active Devices
+control_frame = ctk.CTkFrame(scrollable_frame)
+control_frame.pack(pady=10)
+
+btn_lamp = ctk.CTkButton(control_frame, text="Turn ON Lamp", width=20, command=toggle_lamp)
+btn_lamp.grid(row=0, column=0, padx=20, pady=5)
+
+btn_fan = ctk.CTkButton(control_frame, text="Turn ON Fan", width=20, command=toggle_fan)
+btn_fan.grid(row=0, column=1, padx=20, pady=5)
+
+# Section: Sensor Readings
+sensor_frame = ctk.CTkFrame(scrollable_frame)
+sensor_frame.pack(pady=10, fill="x")
+
+temp_label = ctk.CTkLabel(sensor_frame, text="Temperature: -- °C", font=ctk.CTkFont(size=16))
+temp_label.pack(pady=5)
+
+hum_label = ctk.CTkLabel(sensor_frame, text="Humidity: -- %", font=ctk.CTkFont(size=16))
+hum_label.pack(pady=5)
+
+motion_label = ctk.CTkLabel(sensor_frame, text="Motion: --", font=ctk.CTkFont(size=16))
+motion_label.pack(pady=5)
+
+time_label = ctk.CTkLabel(sensor_frame, text="", font=ctk.CTkFont(size=14))
+time_label.pack(pady=5)
+
+# Section: Inactive Devices
+sep_label = ctk.CTkLabel(scrollable_frame, text="Other Devices (inactive)", font=ctk.CTkFont(size=16, weight="bold"))
+sep_label.pack(pady=(20,10))
+
+inactive_frame = ctk.CTkFrame(scrollable_frame)
+inactive_frame.pack(pady=10)
+
+btn_ac = ctk.CTkButton(inactive_frame, text="Turn ON Air Conditioner", command=lambda: None)
+btn_ac.grid(row=0, column=0, padx=15, pady=5)
+
+btn_washer = ctk.CTkButton(inactive_frame, text="Turn ON Washer", command=lambda: None)
+btn_washer.grid(row=0, column=1, padx=15, pady=5)
+
+btn_dishwasher = ctk.CTkButton(inactive_frame, text="Turn ON Dishwasher", command=lambda: None)
+btn_dishwasher.grid(row=0, column=2, padx=15, pady=5)
+
+# Function to update sensor data and time every second
+def update_data():
+    if dht_sensor:
+        try:
+            temp = dht_sensor.temperature
+            hum = dht_sensor.humidity
+            temp_label.configure(text=f"Temperature: {temp:.1f} °C")
+            hum_label.configure(text=f"Humidity: {hum:.1f} %")
+        except Exception:
+            temp_label.configure(text="Temperature: -- °C")
+            hum_label.configure(text="Humidity: -- %")
+    if GPIO.input(PIN_PIR):
+        motion_label.configure(text="Motion: DETECTED", text_color="red")
+    else:
+        motion_label.configure(text="Motion: None", text_color="green")
+    now = datetime.now()
+    time_label.configure(text=now.strftime("Time: %H:%M:%S"))
+    app.after(1000, update_data)
+
+# Graceful shutdown
+def on_close():
+    GPIO.output(PIN_LAMP, GPIO.HIGH)
+    GPIO.output(PIN_FAN, GPIO.HIGH)
+    GPIO.cleanup()
+    app.destroy()
+
+app.protocol("WM_DELETE_WINDOW", on_close)
+
+# Start updates and GUI loop
+update_data()
+app.mainloop()
